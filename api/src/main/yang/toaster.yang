@@ -50,6 +50,11 @@ module toaster {
             config false;
             mandatory true;
         }
+        leaf darknessFactor {
+            type uint32;
+            config true;
+            default 100;
+        }
     }
 
 }

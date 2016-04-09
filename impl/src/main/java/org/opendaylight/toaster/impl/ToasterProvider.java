@@ -46,21 +46,36 @@ public class ToasterProvider implements BindingAwareProvider, DataChangeListener
         dataService = session.getSALService(DataBroker.class);
         dcReg = dataService.registerDataChangeListener(LogicalDatastoreType.CONFIGURATION, TOASTER_ID, this, DataChangeScope.SUBTREE);
 
-        Toaster toaster = new ToasterBuilder().setToasterManufacturer(TOASTER_MANUFACTURER)
+        Toaster t1 = new ToasterBuilder().setToasterManufacturer(TOASTER_MANUFACTURER)
                 .setToasterModelNumber(TOASTER_MODEL_NUMBER).setToasterStatus(Toaster.ToasterStatus.Up).build();
-        WriteTransaction wtx = dataService.newWriteOnlyTransaction();
-        wtx.put(LogicalDatastoreType.OPERATIONAL, TOASTER_ID, toaster);
-        Futures.addCallback(wtx.submit(), new FutureCallback<Void>() {
+        WriteTransaction wtx1 = dataService.newWriteOnlyTransaction();
+        wtx1.put(LogicalDatastoreType.OPERATIONAL, TOASTER_ID, t1);
+        Futures.addCallback(wtx1.submit(), new FutureCallback<Void>() {
             @Override
             public void onSuccess(@Nullable Void result) {
-                LOG.info("OperationalInit Succeed");
+                LOG.info("OperationalInit Succeed: {}", result);
             }
             @Override
             public void onFailure(Throwable t) {
-                LOG.info("OperationalInit Failed");
+                LOG.info("OperationalInit Fail: {}", t);
             }
         });
-        LOG.info("Init Toaster Operational: {}", toaster);
+        LOG.info("Init Toaster Operational: {}", t1);
+
+        Toaster t2 = new ToasterBuilder().setDarknessFactor(1000l).build();
+        WriteTransaction wtx2 = dataService.newWriteOnlyTransaction();
+        wtx2.put(LogicalDatastoreType.CONFIGURATION, TOASTER_ID, t2);
+        Futures.addCallback(wtx2.submit(), new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(@Nullable Void result) {
+                LOG.info("ConfigurationInit Succeed: {}", result);
+            }
+            @Override
+            public void onFailure(Throwable t) {
+                LOG.info("ConfigurationInit Fail: {}", t);
+            }
+        });
+        LOG.info("Init Toaster Configurational: {}", t2);
 
         LOG.info("ToasterProvider Session Initiated");
     }
@@ -78,9 +93,9 @@ public class ToasterProvider implements BindingAwareProvider, DataChangeListener
         DataObject d = asyncDataChangeEvent.getUpdatedSubtree();
         if (d instanceof Toaster) {
             Toaster t = (Toaster) d;
-            LOG.info("onDataChange - new Toaster config: ", t);
+            LOG.info("onDataChange - new Toaster config: {}", t);
         } else {
-            LOG.info("onDataChange - not Toaster config: ", d);
+            LOG.info("onDataChange - not Toaster config: {}", d);
         }
     }
 }
