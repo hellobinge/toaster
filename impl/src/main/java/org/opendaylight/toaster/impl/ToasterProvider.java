@@ -9,6 +9,7 @@ package org.opendaylight.toaster.impl;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.DataChangeListener;
 import org.opendaylight.controller.md.sal.binding.api.WriteTransaction;
@@ -17,21 +18,26 @@ import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.BindingAwareProvider;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.DisplayString;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.Toaster;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.ToasterBuilder;
+import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.*;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
-public class ToasterProvider implements BindingAwareProvider, DataChangeListener, AutoCloseable {
+public class ToasterProvider implements BindingAwareProvider, ToasterService, DataChangeListener, AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(ToasterProvider.class);
 
+    private NotificationProviderService notificationService;
     private ProviderContext providerContext;
     private DataBroker dataService;
     private ListenerRegistration<DataChangeListener> dcReg;
@@ -39,6 +45,9 @@ public class ToasterProvider implements BindingAwareProvider, DataChangeListener
     public static final InstanceIdentifier<Toaster> TOASTER_ID = InstanceIdentifier.builder(Toaster.class).build();
     private static final DisplayString TOASTER_MANUFACTURER = new DisplayString("Northwestern University, LIST Team");
     private static final DisplayString TOASTER_MODEL_NUMBER = new DisplayString("Model X, Binding Aware");
+
+    private final AtomicReference<Future<?>> currentMakeToastTask = new AtomicReference<>();
+    private final AtomicLong amountOfBreadInStock = new AtomicLong(100);
 
     @Override
     public void onSessionInitiated(ProviderContext session) {
@@ -97,5 +106,40 @@ public class ToasterProvider implements BindingAwareProvider, DataChangeListener
         } else {
             LOG.info("onDataChange - not Toaster config: {}", d);
         }
+    }
+
+    @Override
+    public Future<RpcResult<Void>> cancelToast() {
+        LOG.info("Cancel Toast");
+        Future<?> current = currentMakeToastTask.getAndSet(null);
+        if (current != null) {
+            current.cancel(true);
+        }
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
+    }
+
+    @Override
+    public Future<RpcResult<Void>> makeToast(MakeToastInput input) {
+        LOG.info("Make Toast");
+        final SettableFuture<RpcResult<Void>> futureResult = SettableFuture.create();
+        return futureResult;
+    }
+
+    @Override
+    public Future<RpcResult<Void>> restockToaster(RestockToasterInput input) {
+        LOG.info("Restock Toaster");
+        amountOfBreadInStock.set(input.getAmountOfBreadToStock());
+        if (amountOfBreadInStock.get() > 0) {
+            ToasterRestocked reStockedNotification = new ToasterRestockedBuilder()
+                    .setAmountOfBread(input.getAmountOfBreadToStock()).build();
+            notificationService.publish(reStockedNotification);
+        }
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
+    }
+
+    private void checkStatusAndMakeToast(MakeToastInput intput, SettableFuture<RpcResult<Void>> futureResult,
+                                         int tries) {
+        LOG.info("Check Status And Make Toast");
+        // TODO
     }
 }
