@@ -19,6 +19,7 @@ import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.md.sal.common.api.data.OptimisticLockFailedException;
 import org.opendaylight.controller.md.sal.common.api.data.TransactionCommitFailedException;
+import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.BindingAwareProvider;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
@@ -48,6 +49,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, Da
     private ProviderContext providerContext;
     private DataBroker dataService;
     private ListenerRegistration<DataChangeListener> dcReg;
+    private BindingAwareBroker.RpcRegistration<ToasterService> rpcReg;
 
     public static final InstanceIdentifier<Toaster> TOASTER_ID = InstanceIdentifier.builder(Toaster.class).build();
     private static final DisplayString TOASTER_MANUFACTURER = new DisplayString("Northwestern University, LIST Team");
@@ -62,8 +64,9 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, Da
     @Override
     public void onSessionInitiated(ProviderContext session) {
         providerContext = session;
-        dataService = session.getSALService(DataBroker.class);
+        dataService = providerContext.getSALService(DataBroker.class);
         dcReg = dataService.registerDataChangeListener(LogicalDatastoreType.CONFIGURATION, TOASTER_ID, this, DataChangeScope.SUBTREE);
+        rpcReg = providerContext.addRpcImplementation(ToasterService.class, this);
 
         Toaster t1 = new ToasterBuilder().setToasterManufacturer(TOASTER_MANUFACTURER)
                 .setToasterModelNumber(TOASTER_MODEL_NUMBER).setToasterStatus(Toaster.ToasterStatus.Up).build();
@@ -101,8 +104,26 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, Da
 
     @Override
     public void close() throws Exception {
+        executor.shutdown();
+        if (dataService != null) {
+            WriteTransaction tx = dataService.newWriteOnlyTransaction();
+            tx.delete(LogicalDatastoreType.OPERATIONAL, TOASTER_ID);
+            Futures.addCallback(tx.submit(), new FutureCallback<Void>() {
+                @Override
+                public void onSuccess(@Nullable Void result) {
+                    LOG.debug("Delete Toaster: {}", result);
+                }
+                @Override
+                public void onFailure(Throwable t) {
+                    LOG.error("Fail to Delte Toaster: {}", t);
+                }
+            });
+        }
         if (dcReg != null) {
             dcReg.close();
+        }
+        if (rpcReg != null) {
+            rpcReg.close();
         }
         LOG.info("ToasterProvider Closed");
     }
