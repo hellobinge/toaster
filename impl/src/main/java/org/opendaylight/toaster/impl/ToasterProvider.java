@@ -23,6 +23,7 @@ import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.BindingAwareProvider;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.impl.rev141210.ToasterRuntimeMXBean;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.*;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
@@ -41,7 +42,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ToasterProvider implements BindingAwareProvider, ToasterService, DataChangeListener, AutoCloseable {
+public class ToasterProvider implements BindingAwareProvider, ToasterService, ToasterRuntimeMXBean, DataChangeListener, AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(ToasterProvider.class);
 
@@ -64,6 +65,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, Da
     @Override
     public void onSessionInitiated(ProviderContext session) {
         providerContext = session;
+        notificationService = providerContext.getSALService(NotificationProviderService.class);
         dataService = providerContext.getSALService(DataBroker.class);
         dcReg = dataService.registerDataChangeListener(LogicalDatastoreType.CONFIGURATION, TOASTER_ID, this, DataChangeScope.SUBTREE);
         rpcReg = providerContext.addRpcImplementation(ToasterService.class, this);
@@ -296,4 +298,16 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, Da
             }
         });
     }
+
+    @Override
+    public Long getToastsMade() {
+        return toastsMade.get();
+    }
+
+    @Override
+    public void clearToastsMade() {
+        LOG.info("Clear Made Toasts: {}", toastsMade.get());
+        toastsMade.set(0);
+    }
+
 }

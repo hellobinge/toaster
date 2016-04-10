@@ -4,7 +4,8 @@ module toaster-impl {
     prefix "toaster-impl";
 
     import config { prefix config; revision-date 2013-04-05; }
-    import opendaylight-md-sal-binding { prefix md-sal-binding; revision-date 2013-10-28;}
+    import opendaylight-md-sal-binding { prefix md-sal-binding; revision-date 2013-10-28; }
+    import rpc-context { prefix rpcx; revision-date 2013-06-17; }
 
     description
         "Service definition for toaster project";
@@ -32,4 +33,27 @@ module toaster-impl {
             }
         }
     }
+
+    augment "/config:modules/config:module/config:state" {
+        case toaster {
+            when "/config:modules/config:module/config:type = 'toaster'";
+            leaf toasts-made {
+                type uint32;
+            }
+            rpcx:rpc-context-instance "clear-toasts-made-rpc";
+        }
+    }
+
+    identity clear-toasts-made-rpc;
+
+    rpc clear-toasts-made {
+        input {
+            uses rpcx:rpc-context-ref {
+                refine context-instance {
+                    rpcx:rpc-context-instance clear-toasts-made-rpc;
+                }
+            }
+        }
+    }
+
 }

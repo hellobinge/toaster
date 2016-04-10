@@ -27,7 +27,20 @@ public class ToasterModule extends org.opendaylight.yang.gen.v1.urn.opendaylight
     public java.lang.AutoCloseable createInstance() {
         ToasterProvider provider = new ToasterProvider();
         getBrokerDependency().registerProvider(provider);
-        return provider;
+        ToasterRuntimeRegistrator registrator = getRootRuntimeBeanRegistratorWrapper();
+        if (registrator != null) {
+            final ToasterRuntimeRegistration jmxReg = registrator.register(provider);
+            final class CloseResources implements AutoCloseable {
+                @Override
+                public void close() throws Exception {
+                    jmxReg.close();
+                    provider.close();
+                }
+            }
+            return new CloseResources();
+        } else {
+            return provider;
+        }
     }
 
 }
