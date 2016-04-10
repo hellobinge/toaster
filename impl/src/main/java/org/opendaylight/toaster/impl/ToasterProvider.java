@@ -46,24 +46,21 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ToasterProvider implements BindingAwareProvider, ToasterService, ToasterImplService, ToasterRuntimeMXBean, DataChangeListener, AutoCloseable {
 
+    public static final InstanceIdentifier<Toaster> TOASTER_ID = InstanceIdentifier.builder(Toaster.class).build();
     private static final Logger LOG = LoggerFactory.getLogger(ToasterProvider.class);
-
+    private static final DisplayString TOASTER_MANUFACTURER = new DisplayString("Northwestern University, LIST Team");
+    private static final DisplayString TOASTER_MODEL_NUMBER = new DisplayString("Model X, Binding Aware");
+    private final ExecutorService executor = Executors.newFixedThreadPool(4);
+    private final AtomicReference<Future<?>> currentMakeToastTask = new AtomicReference<>();
+    private final AtomicLong amountOfBreadInStock = new AtomicLong(100);
+    private final AtomicLong darknessFactor = new AtomicLong(1000);
+    private final AtomicLong toastsMade = new AtomicLong(0);
     private NotificationProviderService notificationService;
     private ProviderContext providerContext;
     private DataBroker dataService;
     private ListenerRegistration<DataChangeListener> dcReg;
     private BindingAwareBroker.RpcRegistration<ToasterService> rpcReg;
     private BindingAwareBroker.RpcRegistration<ToasterImplService> implRpcReg;
-
-    public static final InstanceIdentifier<Toaster> TOASTER_ID = InstanceIdentifier.builder(Toaster.class).build();
-    private static final DisplayString TOASTER_MANUFACTURER = new DisplayString("Northwestern University, LIST Team");
-    private static final DisplayString TOASTER_MODEL_NUMBER = new DisplayString("Model X, Binding Aware");
-
-    private final ExecutorService executor = Executors.newFixedThreadPool(4);
-    private final AtomicReference<Future<?>> currentMakeToastTask = new AtomicReference<>();
-    private final AtomicLong amountOfBreadInStock = new AtomicLong(100);
-    private final AtomicLong darknessFactor = new AtomicLong(1000);
-    private final AtomicLong toastsMade = new AtomicLong(0);
 
     @Override
     public void onSessionInitiated(ProviderContext session) {
@@ -83,6 +80,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
             public void onSuccess(@Nullable Void result) {
                 LOG.info("OperationalInit Succeed: {}", result);
             }
+
             @Override
             public void onFailure(Throwable t) {
                 LOG.info("OperationalInit Fail: {}", t);
@@ -98,6 +96,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
             public void onSuccess(@Nullable Void result) {
                 LOG.info("ConfigurationInit Succeed: {}", result);
             }
+
             @Override
             public void onFailure(Throwable t) {
                 LOG.info("ConfigurationInit Fail: {}", t);
@@ -119,6 +118,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
                 public void onSuccess(@Nullable Void result) {
                     LOG.debug("Delete Toaster: {}", result);
                 }
+
                 @Override
                 public void onFailure(Throwable t) {
                     LOG.error("Fail to Delte Toaster: {}", t);
@@ -214,6 +214,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
             public void onSuccess(@Nullable Void result) {
                 currentMakeToastTask.set(executor.submit(new MakeToastTask(input, futureResult)));
             }
+
             @Override
             public void onFailure(Throwable t) {
                 if (t instanceof OptimisticLockFailedException) {
@@ -226,7 +227,7 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
                     }
                 } else {
                     LOG.debug("Fail to commit: {}", t);
-                    futureResult.set(RpcResultBuilder.<Void>failed().withRpcErrors(((TransactionCommitFailedException)t).getErrorList()).build());
+                    futureResult.set(RpcResultBuilder.<Void>failed().withRpcErrors(((TransactionCommitFailedException) t).getErrorList()).build());
                 }
             }
         });
@@ -248,6 +249,43 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
 
     private RpcError makeToasterInUseError() {
         return RpcResultBuilder.newError(RpcError.ErrorType.APPLICATION, "resource-in-use", "Toaster is in use");
+    }
+
+    private void setToasterStatusUp(Function<Boolean, Void> resultCallBack) {
+        WriteTransaction tx = dataService.newWriteOnlyTransaction();
+        tx.put(LogicalDatastoreType.OPERATIONAL, TOASTER_ID, buildToaster(Toaster.ToasterStatus.Up));
+        Futures.addCallback(tx.submit(), new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(@Nullable Void result) {
+                if (resultCallBack != null) {
+                    resultCallBack.apply(true);
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                if (resultCallBack != null) {
+                    resultCallBack.apply(false);
+                }
+            }
+        });
+    }
+
+    @Override
+    public Long getToastsMade() {
+        return toastsMade.get();
+    }
+
+    @Override
+    public void clearToastsMade() {
+        LOG.info("Clear Made Toasts: {}", toastsMade.get());
+        toastsMade.set(0);
+    }
+
+    @Override
+    public Future<RpcResult<Void>> clearToastsMade(ClearToastsMadeInput input) {
+        LOG.info("Clear Toasts Made, This method is private");
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 
     private class MakeToastTask implements Callable<Void> {
@@ -285,42 +323,6 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
             });
             return null;
         }
-    }
-
-    private void setToasterStatusUp(Function<Boolean, Void> resultCallBack) {
-        WriteTransaction tx = dataService.newWriteOnlyTransaction();
-        tx.put(LogicalDatastoreType.OPERATIONAL, TOASTER_ID, buildToaster(Toaster.ToasterStatus.Up));
-        Futures.addCallback(tx.submit(), new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(@Nullable Void result) {
-                if (resultCallBack != null) {
-                    resultCallBack.apply(true);
-                }
-            }
-            @Override
-            public void onFailure(Throwable t) {
-                if (resultCallBack != null) {
-                    resultCallBack.apply(false);
-                }
-            }
-        });
-    }
-
-    @Override
-    public Long getToastsMade() {
-        return toastsMade.get();
-    }
-
-    @Override
-    public void clearToastsMade() {
-        LOG.info("Clear Made Toasts: {}", toastsMade.get());
-        toastsMade.set(0);
-    }
-
-    @Override
-    public Future<RpcResult<Void>> clearToastsMade(ClearToastsMadeInput input) {
-        LOG.info("Clear Toasts Made, This method is private");
-        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 
 }

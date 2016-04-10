@@ -18,9 +18,7 @@ import javax.management.ObjectName;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class ToasterModuleTest {
     @Test
@@ -46,7 +44,7 @@ public class ToasterModuleTest {
         AutoCloseable closeable = module.getInstance();
 
         // verify that the module registered the returned provider with the broker
-        verify(broker).registerProvider((ToasterProvider)closeable);
+        verify(broker).registerProvider((ToasterProvider) closeable);
 
         // ensure no exceptions on close
         closeable.close();
