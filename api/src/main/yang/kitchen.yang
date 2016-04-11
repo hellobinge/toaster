@@ -1,0 +1,42 @@
+module kitchen {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:kitchen";
+    prefix "kitchen";
+
+    import toaster { prefix toaster; revision-date 2015-01-05; }
+
+    revision "2015-01-05" {
+        description "Initial revision of kitchen model";
+    }
+
+    rpc make-breakfast {
+        input {
+            leaf eggType {
+                type enumeration {
+                    enum "big" {
+                        value 1;
+                    }
+                    enum "middle" {
+                        value 2;
+                    }
+                    enum "small" {
+                        value 3;
+                    }
+                }
+            }
+            leaf toasterDoneness {
+                type uint32 {
+                    range "1 .. 10";
+                }
+                default 5;
+            }
+            leaf toasterToastType {
+                type identityref {
+                    base toaster:toast-type;
+                }
+                default "wheat-bread";
+            }
+        }
+    }
+
+}
