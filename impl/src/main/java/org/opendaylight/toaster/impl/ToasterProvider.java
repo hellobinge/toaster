@@ -23,8 +23,6 @@ import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.BindingAwareProvider;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.impl.rev141210.ClearToastsMadeInput;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.impl.rev141210.ToasterImplService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.impl.rev141210.ToasterRuntimeMXBean;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.toaster.rev150105.*;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
@@ -44,7 +42,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ToasterProvider implements BindingAwareProvider, ToasterService, ToasterImplService, ToasterRuntimeMXBean, DataChangeListener, AutoCloseable {
+public class ToasterProvider implements BindingAwareProvider, ToasterService, ToasterRuntimeMXBean, DataChangeListener, AutoCloseable {
 
     public static final InstanceIdentifier<Toaster> TOASTER_ID = InstanceIdentifier.builder(Toaster.class).build();
     private static final Logger LOG = LoggerFactory.getLogger(ToasterProvider.class);
@@ -60,7 +58,6 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
     private DataBroker dataService;
     private ListenerRegistration<DataChangeListener> dcReg;
     private BindingAwareBroker.RpcRegistration<ToasterService> rpcReg;
-    private BindingAwareBroker.RpcRegistration<ToasterImplService> implRpcReg;
 
     @Override
     public void onSessionInitiated(ProviderContext session) {
@@ -69,7 +66,6 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
         dataService = providerContext.getSALService(DataBroker.class);
         dcReg = dataService.registerDataChangeListener(LogicalDatastoreType.CONFIGURATION, TOASTER_ID, this, DataChangeScope.SUBTREE);
         rpcReg = providerContext.addRpcImplementation(ToasterService.class, this);
-        implRpcReg = providerContext.addRpcImplementation(ToasterImplService.class, this);
 
         Toaster t1 = new ToasterBuilder().setToasterManufacturer(TOASTER_MANUFACTURER)
                 .setToasterModelNumber(TOASTER_MODEL_NUMBER).setToasterStatus(Toaster.ToasterStatus.Up).build();
@@ -130,9 +126,6 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
         }
         if (rpcReg != null) {
             rpcReg.close();
-        }
-        if (implRpcReg != null) {
-            implRpcReg.close();
         }
         LOG.info("ToasterProvider Closed");
     }
@@ -280,12 +273,6 @@ public class ToasterProvider implements BindingAwareProvider, ToasterService, To
     public void clearToastsMade() {
         LOG.info("Clear Made Toasts: {}", toastsMade.get());
         toastsMade.set(0);
-    }
-
-    @Override
-    public Future<RpcResult<Void>> clearToastsMade(ClearToastsMadeInput input) {
-        LOG.info("Clear Toasts Made, This method is private");
-        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 
     private class MakeToastTask implements Callable<Void> {
